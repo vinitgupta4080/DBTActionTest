@@ -1,4 +1,4 @@
-name: Detect Column Changes in DBT Models
+name: Detect Column Changes in DBT Models (YAML/JSON)
 
 on:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install dbt-core jsondiff requests
+        pip install dbt-core jsondiff pyyaml requests
 
     - name: Detect column changes
       id: detect_changes
@@ -30,37 +30,46 @@ jobs:
         python - <<EOF
         import os
         import json
+        import yaml
         from jsondiff import diff
 
         # Paths
         BASE_MODELS_DIR = "models"
         TARGET_BRANCH = "origin/main"
 
-        # Helper to get model columns
-        def get_model_columns(model_path):
-            with open(model_path, "r") as f:
-                data = json.load(f)
-            return {column['name'] for column in data.get('columns', [])}
+        # Helper to parse model files
+        def get_model_columns(file_path):
+            if file_path.endswith(".json"):
+                with open(file_path, "r") as f:
+                    data = json.load(f)
+            elif file_path.endswith(".yml") or file_path.endswith(".yaml"):
+                with open(file_path, "r") as f:
+                    data = yaml.safe_load(f)
+            else:
+                raise ValueError(f"Unsupported file type: {file_path}")
+
+            return {col['name'] for col in data.get('columns', [])}
 
         # Fetch modified models
         changed_files = os.popen(f'git diff --name-only {TARGET_BRANCH}').read().splitlines()
-        dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and f.endswith(".yml")]
+        dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and (f.endswith(".json") or f.endswith(".yml") or f.endswith(".yaml"))]
 
         # Detect column changes
         column_changes = {}
         for model in dbt_models:
-            prev_version_path = f'{TARGET_BRANCH}/{model}'
-            print(prev_version_path)
-            os.system(f'git show {prev_version_path} > previous_model.yml')
+            prev_version_path = f'{TARGET_BRANCH}:{model}'
+            os.system(f'git show {prev_version_path} > previous_model')
             
-            if os.path.exists('previous_model.yml'):
-                with open('previous_model.yml', 'r') as f:
-                    prev_columns = get_model_columns('previous_model.yml')
-                current_columns = get_model_columns(model)
+            if os.path.exists('previous_model'):
+                try:
+                    prev_columns = get_model_columns('previous_model')
+                    current_columns = get_model_columns(model)
 
-                changes = diff(prev_columns, current_columns)
-                if changes:
-                    column_changes[model] = list(changes.keys())
+                    changes = diff(prev_columns, current_columns)
+                    if changes:
+                        column_changes[model] = list(changes.keys())
+                except Exception as e:
+                    print(f"Error processing {model}: {e}")
 
         # Output the result
         with open('column_changes.json', 'w') as f:
