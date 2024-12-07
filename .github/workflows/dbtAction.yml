@@ -1,36 +1,114 @@
-# This is a basic workflow to help you get started with Actions
+name: Detect Column Changes in DBT Models
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    paths:
+      - "models/**" # Adjust the path to your DBT model files
+    types: [opened, synchronize]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  detect-and-report:
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install dbt-core jsondiff requests
+
+    - name: Detect column changes
+      id: detect_changes
+      run: |
+        python - <<EOF
+        import os
+        import json
+        from jsondiff import diff
+
+        # Paths
+        BASE_MODELS_DIR = "models"
+        TARGET_BRANCH = "origin/main"
+
+        # Helper to get model columns
+        def get_model_columns(model_path):
+            with open(model_path, "r") as f:
+                data = json.load(f)
+            return {column['name'] for column in data.get('columns', [])}
+
+        # Fetch modified models
+        changed_files = os.popen(f'git diff --name-only {TARGET_BRANCH}').read().splitlines()
+        dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and f.endswith(".json")]
+
+        # Detect column changes
+        column_changes = {}
+        for model in dbt_models:
+            prev_version_path = f'{TARGET_BRANCH}/{model}'
+            os.system(f'git show {prev_version_path} > previous_model.json')
+            
+            if os.path.exists('previous_model.json'):
+                with open('previous_model.json', 'r') as f:
+                    prev_columns = get_model_columns('previous_model.json')
+                current_columns = get_model_columns(model)
+
+                changes = diff(prev_columns, current_columns)
+                if changes:
+                    column_changes[model] = list(changes.keys())
+
+        # Output the result
+        with open('column_changes.json', 'w') as f:
+            json.dump(column_changes, f)
+
+        if column_changes:
+            print(f"::set-output name=columns::{json.dumps(column_changes)}")
+        else:
+            print("No column changes detected.")
+        EOF
+
+    - name: Send changes to Alation
+      if: steps.detect-changes.outputs.columns != 'null'
+      id: send_to_alation
+      run: |
+        python - <<EOF
+        import os
+        import json
+        import requests
+
+        ALATION_API_URL = os.getenv("ALATION_API_URL")
+        ALATION_API_TOKEN = os.getenv("ALATION_API_TOKEN")
+
+        with open('column_changes.json', 'r') as f:
+            column_changes = json.load(f)
+
+        # Prepare API request
+        headers = {"Authorization": f"Bearer {ALATION_API_TOKEN}"}
+        for model, columns in column_changes.items():
+            payload = {
+                "model": model,
+                "columns": columns
+            }
+            response = requests.post(ALATION_API_URL, headers=headers, json=payload)
+            print(response.json())
+        EOF
+
+    - name: Comment on PR
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const columns = JSON.parse(process.env.COLUMNS || '{}');
+          const commentBody = columns
+            ? `The following columns were updated in the DBT models:\n\n${Object.entries(columns).map(([model, cols]) => `**${model}**:\n- ${cols.join('\n- ')}`).join('\n\n')}`
+            : 'No column changes detected.';
+
+          github.rest.issues.createComment({
+            issue_number: context.payload.pull_request.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody,
+          });
