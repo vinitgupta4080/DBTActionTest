@@ -50,11 +50,12 @@ jobs:
         column_changes = {}
         for model in dbt_models:
             prev_version_path = f'{TARGET_BRANCH}/{model}'
-            os.system(f'git show {prev_version_path} > previous_model.json')
+            print(prev_version_path)
+            os.system(f'git show {prev_version_path} > previous_model.yml')
             
-            if os.path.exists('previous_model.json'):
-                with open('previous_model.json', 'r') as f:
-                    prev_columns = get_model_columns('previous_model.json')
+            if os.path.exists('previous_model.yml'):
+                with open('previous_model.yml', 'r') as f:
+                    prev_columns = get_model_columns('previous_model.yml')
                 current_columns = get_model_columns(model)
 
                 changes = diff(prev_columns, current_columns)
