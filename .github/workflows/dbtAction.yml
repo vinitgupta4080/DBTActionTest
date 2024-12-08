@@ -128,9 +128,8 @@ jobs:
                 "columns": columnsChanged
         }
         response = requests.post(ALATION_API_URL, headers=headers, json=payload)
-        print(response.json)
         with open('alation_responses.json', 'w') as f:
-            json.dump(alation_responses, f)
+            json.dump(response, f)
       
     - name: Comment on pull request
       uses: actions/github-script@v6
