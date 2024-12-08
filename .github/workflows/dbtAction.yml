@@ -69,7 +69,7 @@ jobs:
 
             # Get previous version of the file
             os.system(f'git show {TARGET_BRANCH}:{model} > {previous_model_path}')
-
+            print("previous dbt models path:", previous_model_path)
             if os.path.exists(previous_model_path):
                 try:
                     prev_columns = get_model_columns(previous_model_path)
