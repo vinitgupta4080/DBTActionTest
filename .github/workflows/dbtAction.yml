@@ -47,7 +47,7 @@ jobs:
         TARGET_BRANCH = os.environ.get("GITHUB_BASE_REF", "main")
         PREVIOUS_MODEL_PATH = "previous_model"
         
-        def get_model_columns_NEW(file_path):
+        def get_model_columns(file_path):
           if file_path.endswith(".json"):
             with open(file_path, "r") as f:
               data = json.load(f)
@@ -56,14 +56,23 @@ jobs:
               data = yaml.safe_load(f)
           else:
             raise ValueError(f"Unsupported file type: {file_path}")
-          columns = set()
-          for model in data.get("models", []):
-            for column in model.get("columns", []):
-              column_name = column.get("name")
-              if column_name:
-                columns.add(column_name)
-          return columns
-      
+          model_columns = {}
+    
+          # Extracting columns for each model
+          if 'models' in data:
+            for model in data['models']:
+              model_name = model.get('name')
+              columns = []
+              if 'columns' in model:
+                columns = [col.get('name') for col in model['columns'] if 'name' in col]
+              model_columns[model_name] = columns
+    
+          result = set()
+          for key, values in model_columns.items():
+            for value in values:
+              result.add(key+"."+value)
+          return result
+
         # Fetch changed files
         changed_files = os.popen(f'git diff --name-only origin/{TARGET_BRANCH}').read().splitlines()
         print("Changed files:", changed_files)
@@ -81,10 +90,10 @@ jobs:
                 os.system(f'git show origin/{TARGET_BRANCH}:{model} > {previous_model_path}')
 
                 if os.path.exists(previous_model_path):
-                    prev_columns = get_model_columns_NEW(previous_model_path)
+                    prev_columns = get_model_columns(previous_model_path)
                     print("prev_columns:", prev_columns)
 
-                    current_columns = get_model_columns_NEW(model)
+                    current_columns = get_model_columns(model)
                     print("current_columns:", current_columns)
                     changes = prev_columns - current_columns
                     if changes:
@@ -96,20 +105,9 @@ jobs:
                     os.remove(previous_model_path)
 
         # Save results
-        print("ChangedFIles and Columns", column_changes)
-        #with open('changed_files.json', 'w') as f:
-            #json.dump({"changed_files": list(changed_files)}, f)
-        print(type(column_changes))
         with open('column_changes.json', 'w') as f:
             json.dump(column_changes, f)
         
-        if column_changes:
-            print(type(column_changes))
-            #print(f"::set-output name=columns::{json.dumps(column_changes)}")
-        else:
-            print("No column changes detected.")
-        #print(type(changed_files))
-        #print(f"::set-output name=changed_files::{json.dumps(list(changed_files))}")
     - name: Comment on pull request
       uses: actions/github-script@v6
       with:
