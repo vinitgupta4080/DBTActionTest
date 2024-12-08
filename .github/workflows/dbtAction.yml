@@ -68,7 +68,7 @@ jobs:
             previous_model_path = f"{PREVIOUS_MODEL_PATH}{file_extension}"
 
             # Get previous version of the file
-            os.system(f'git show {TARGET_BRANCH}:{model} > {previous_model_path}')
+            os.system(f'git show origin/${{GITHUB_BASE_REF}}:{model} > {previous_model_path}')
             print("previous dbt models path:", previous_model_path)
             if os.path.exists(previous_model_path):
                 try:
