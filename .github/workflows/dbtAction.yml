@@ -128,21 +128,37 @@ jobs:
                 "columns": columnsChanged
         }
         response = requests.post(ALATION_API_URL, headers=headers, json=payload)
-        print(response)        
+        print(response.json)
+        with open('alation_responses.json', 'w') as f:
+            json.dump(alation_responses, f)
+      
     - name: Comment on pull request
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          const columnChanges = JSON.parse(fs.readFileSync('column_changes.json', 'utf8'));
+          const path = 'alation_responses.json';
 
-          const columnChangesList = Object.keys(columnChanges).length > 0
-            ? `**Column Changes:**\n${Object.entries(columnChanges).map(([model, cols]) => `- **${model}**: ${cols.join(', ')}`).join('\n')}\n`
-            : 'No column changes detected.\n';
+          if (!fs.existsSync(path)) {
+            core.setFailed('Alation responses file not found.');
+            return;
+          }
+
+          const alationResponses = JSON.parse(fs.readFileSync(path, 'utf8'));
+
+          const commentBody = alationResponses.length
+            ? alationResponses.map(response => {
+                const columnName = response.columnName;
+                const impactedReports = response.impactedReports.map(report => 
+                  `- **Report Name:** ${report.reportName}, **Steward:** ${report.stewardName}`
+                ).join('\n');
+                return `### Column: ${columnName}\n${impactedReports}`;
+              }).join('\n\n')
+            : 'No Downstream Impacted Report From Alation.';
 
           github.rest.issues.createComment({
             issue_number: context.payload.pull_request.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `${columnChangesList}`,
+            body: commentBody,
           });
