@@ -93,11 +93,12 @@ jobs:
 
         # Save results
         print("ChangedFIles and Columns", column_changes)
-        with open('changed_files.json', 'w') as f:
-            json.dump({"changed_files": list(changed_files)}, f)
-        #with open('column_changes.json', 'w') as f:
-            #json.dump(column_changes, f)
-
+        #with open('changed_files.json', 'w') as f:
+            #json.dump({"changed_files": list(changed_files)}, f)
+        print(type(column_changes))
+        with open('column_changes.json', 'w') as f:
+            json.dump(column_changes, f)
+        
         if column_changes:
             print(type(column_changes))
             print(f"::set-output name=columns::{json.dumps(column_changes)}")
