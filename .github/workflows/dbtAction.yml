@@ -1,10 +1,9 @@
-name: Detect Column Changes in DBT Models (YAML/JSON)
+name: Detect Column Changes in DBT Models
 
 on:
   pull_request:
     paths:
-      - "models/**" # Adjust the path to your DBT model files
-    types: [opened, synchronize]
+      - "models/**" # Monitor only changes in the models directory
 
 jobs:
   detect-and-report:
@@ -16,9 +15,9 @@ jobs:
       with:
         fetch-depth: 0 # Fetch full history to ensure proper diff
 
-    - name: Fetch all branches
+    - name: Fetch target branch
       run: |
-        git fetch --all
+        git fetch origin ${{ github.base_ref }}:$GITHUB_BASE_REF
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -28,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install dbt-core jsondiff pyyaml requests
+        pip install pyyaml jsondiff requests
 
     - name: Detect column changes
       id: detect_changes
@@ -39,9 +38,10 @@ jobs:
         import yaml
         from jsondiff import diff
 
-        # Paths
+        # Paths and setup
         BASE_MODELS_DIR = "models"
-        TARGET_BRANCH = "refs/remotes/origin/main"  # Adjust to your default branch
+        TARGET_BRANCH = os.environ.get("GITHUB_BASE_REF", "main")
+        PREVIOUS_MODEL_PATH = "previous_model"
 
         # Helper to parse model files
         def get_model_columns(file_path):
@@ -56,19 +56,22 @@ jobs:
 
             return {col['name'] for col in data.get('columns', [])}
 
-        # Fetch modified models
-        changed_files = os.popen(f'git diff {TARGET_BRANCH} --name-only').read().splitlines()
+        # Fetch changed files
+        changed_files = os.popen(f'git diff --name-only {TARGET_BRANCH}').read().splitlines()
         dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and (f.endswith(".json") or f.endswith(".yml") or f.endswith(".yaml"))]
 
         # Detect column changes
         column_changes = {}
         for model in dbt_models:
-            prev_version_path = f'{TARGET_BRANCH}:{model}'
-            os.system(f'git show {prev_version_path} > previous_model')
-            
-            if os.path.exists('previous_model'):
+            file_extension = os.path.splitext(model)[1]
+            previous_model_path = f"{PREVIOUS_MODEL_PATH}{file_extension}"
+
+            # Get previous version of the file
+            os.system(f'git show {TARGET_BRANCH}:{model} > {previous_model_path}')
+
+            if os.path.exists(previous_model_path):
                 try:
-                    prev_columns = get_model_columns('previous_model')
+                    prev_columns = get_model_columns(previous_model_path)
                     current_columns = get_model_columns(model)
 
                     changes = diff(prev_columns, current_columns)
@@ -76,6 +79,8 @@ jobs:
                         column_changes[model] = list(changes.keys())
                 except Exception as e:
                     print(f"Error processing {model}: {e}")
+                finally:
+                    os.remove(previous_model_path)
 
         # Output the result
         with open('column_changes.json', 'w') as f:
@@ -87,9 +92,8 @@ jobs:
             print("No column changes detected.")
         EOF
 
-    - name: Send changes to Alation
+    - name: Post detected changes to Alation
       if: steps.detect-changes.outputs.columns != 'null'
-      id: send_to_alation
       run: |
         python - <<EOF
         import os
@@ -102,7 +106,7 @@ jobs:
         with open('column_changes.json', 'r') as f:
             column_changes = json.load(f)
 
-        # Prepare API request
+        # Send data to Alation
         headers = {"Authorization": f"Bearer {ALATION_API_TOKEN}"}
         for model, columns in column_changes.items():
             payload = {
@@ -113,7 +117,7 @@ jobs:
             print(response.json())
         EOF
 
-    - name: Comment on PR
+    - name: Comment on pull request
       uses: actions/github-script@v6
       with:
         script: |
