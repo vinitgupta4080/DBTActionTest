@@ -99,10 +99,10 @@ jobs:
             json.dump(column_changes, f)
 
         if column_changes:
-            print(f"::set-output name=columns::{json.dumps(list(column_changes))}")
+            print(f"::set-output name=columns::{json.dumps(column_changes)}")
         else:
             print("No column changes detected.")
-        print(f"::set-output name=changed_files::{json.dumps(changed_files)}")
+        print(f"::set-output name=changed_files::{json.dumps(list(changed_files))}")
         EOF
 
     - name: Comment on pull request
