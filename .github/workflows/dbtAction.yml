@@ -122,7 +122,7 @@ jobs:
             column_changes = json.load(f)
         columnsChanged = list()
         headers = {"Authorization": f"Bearer {ALATION_API_TOKEN}"}
-        for model, columns in column_changes_x.items():
+        for model, columns in column_changes.items():
           columnsChanged.extend(columns)
         payload = {
                 "columns": columnsChanged
