@@ -13,6 +13,12 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # Fetch full history to ensure proper diff
+
+    - name: Fetch all branches
+      run: |
+        git fetch --all
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -35,7 +41,7 @@ jobs:
 
         # Paths
         BASE_MODELS_DIR = "models"
-        TARGET_BRANCH = "origin/main"
+        TARGET_BRANCH = "refs/remotes/origin/main"  # Adjust to your default branch
 
         # Helper to parse model files
         def get_model_columns(file_path):
@@ -51,7 +57,7 @@ jobs:
             return {col['name'] for col in data.get('columns', [])}
 
         # Fetch modified models
-        changed_files = os.popen(f'git diff --name-only {TARGET_BRANCH}').read().splitlines()
+        changed_files = os.popen(f'git diff {TARGET_BRANCH} --name-only').read().splitlines()
         dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and (f.endswith(".json") or f.endswith(".yml") or f.endswith(".yaml"))]
 
         # Detect column changes
