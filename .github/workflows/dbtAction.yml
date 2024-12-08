@@ -52,12 +52,12 @@ jobs:
               data = yaml.safe_load(f)
           else:
             raise ValueError(f"Unsupported file type: {file_path}")
-            columns = set()
-            for model in data.get("models", []):
-              for column in model.get("columns", []):
-                column_name = column.get("name")
-                if column_name:
-                  columns.add(column_name)
+          columns = set()
+          for model in data.get("models", []):
+            for column in model.get("columns", []):
+              column_name = column.get("name")
+              if column_name:
+                columns.add(column_name)
           return columns
 
 
