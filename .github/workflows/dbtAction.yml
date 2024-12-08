@@ -101,7 +101,7 @@ jobs:
         
         if column_changes:
             print(type(column_changes))
-            print(f"::set-output name=columns::{json.dumps(column_changes)}")
+            #print(f"::set-output name=columns::{json.dumps(column_changes)}")
         else:
             print("No column changes detected.")
         #print(type(changed_files))
