@@ -129,7 +129,7 @@ jobs:
         }
         response = requests.post(ALATION_API_URL, headers=headers, json=payload)
         with open('alation_responses.json', 'w') as f:
-            json.dump(response, f)
+            json.dump(response.json(), f)
       
     - name: Comment on pull request
       uses: actions/github-script@v6
