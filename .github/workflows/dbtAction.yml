@@ -76,7 +76,10 @@ jobs:
 
                 if os.path.exists(previous_model_path):
                     prev_columns = get_model_columns(previous_model_path)
+                    print("prev_columns:", prev_columns)
+
                     current_columns = get_model_columns(model)
+                    print("current_columns:", current_columns)
 
                     changes = diff(prev_columns, current_columns)
                     if changes:
