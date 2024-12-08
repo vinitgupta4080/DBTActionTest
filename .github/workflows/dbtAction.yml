@@ -59,26 +59,7 @@ jobs:
               if column_name:
                 columns.add(column_name)
           return columns
-
-
-
-        # Helper to parse model files
-        def get_model_columns(file_path):
-            if file_path.endswith(".json"):
-                with open(file_path, "r") as f:
-                    data = json.load(f)
-            elif file_path.endswith(".yml") or file_path.endswith(".yaml"):
-                with open(file_path, "r") as f:
-                    data = yaml.safe_load(f)
-                    print(file_path)
-                    print(data)
-            else:
-                raise ValueError(f"Unsupported file type: {file_path}")
-            
-
-            return {col['name'] for col in data.get('columns', [])}
-          
-
+      
         # Fetch changed files
         changed_files = os.popen(f'git diff --name-only origin/{TARGET_BRANCH}').read().splitlines()
         print("Changed files:", changed_files)
@@ -101,11 +82,9 @@ jobs:
 
                     current_columns = get_model_columns_NEW(model)
                     print("current_columns:", current_columns)
-
-                    #changes = diff(prev_columns, current_columns)
                     changes = prev_columns - current_columns
                     if changes:
-                        column_changes[model] = list(changes.keys())
+                        column_changes[model] = changes
             except Exception as e:
                 print(f"Error processing {model}: {e}")
             finally:
