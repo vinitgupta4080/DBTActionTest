@@ -112,7 +112,7 @@ jobs:
                     os.remove(previous_model_path)
 
         # Save results
-        print("ChangedFIles and Columns", column_changes[model])
+        print("ChangedFIles and Columns", column_changes)
         with open('changed_files.json', 'w') as f:
             json.dump({"changed_files": changed_files}, f)
         with open('column_changes.json', 'w') as f:
