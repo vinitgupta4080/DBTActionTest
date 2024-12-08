@@ -59,6 +59,7 @@ jobs:
         # Fetch changed files
         changed_files = os.popen(f'git diff --name-only {TARGET_BRANCH}').read().splitlines()
         dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and (f.endswith(".json") or f.endswith(".yml") or f.endswith(".yaml"))]
+        print("changed dbt models files:", dbt_models)
 
         # Detect column changes
         column_changes = {}
