@@ -105,8 +105,6 @@ jobs:
             print("No column changes detected.")
         print(type(changed_files))
         print(f"::set-output name=changed_files::{json.dumps(list(changed_files))}")
-        ≥EOF
-
     - name: Comment on pull request
       uses: actions/github-script@v6
       with:
