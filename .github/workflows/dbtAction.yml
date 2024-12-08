@@ -84,7 +84,7 @@ jobs:
                     print("current_columns:", current_columns)
                     changes = prev_columns - current_columns
                     if changes:
-                        column_changes[model] = changes
+                        column_changes[model] = list(changes)
             except Exception as e:
                 print(f"Error processing {model}: {e}")
             finally:
