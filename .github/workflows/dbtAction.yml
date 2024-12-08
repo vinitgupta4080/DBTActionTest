@@ -73,6 +73,8 @@ jobs:
                 os.system(f'git show origin/{TARGET_BRANCH}:{model} > {previous_model_path}')
 
                 if os.path.exists(previous_model_path):
+                    print("old files:", previous_model_path)
+                    print("new files:", model)
                     prev_columns = get_model_columns(previous_model_path)
                     current_columns = get_model_columns(model)
 
