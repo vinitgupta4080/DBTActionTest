@@ -102,7 +102,8 @@ jobs:
                     current_columns = get_model_columns_NEW(model)
                     print("current_columns:", current_columns)
 
-                    changes = diff(prev_columns, current_columns)
+                    #changes = diff(prev_columns, current_columns)
+                    changes = prev_columns - current_columns
                     if changes:
                         column_changes[model] = list(changes.keys())
             except Exception as e:
