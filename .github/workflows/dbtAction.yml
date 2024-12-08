@@ -17,7 +17,7 @@ jobs:
 
     - name: Fetch target branch
       run: |
-        git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+        git fetch origin $GITHUB_BASE_REF:$GITHUB_BASE_REF
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -57,7 +57,7 @@ jobs:
             return {col['name'] for col in data.get('columns', [])}
 
         # Fetch changed files
-        changed_files = os.popen(f'git diff --name-only origin/${{GITHUB_BASE_REF}}').read().splitlines()
+        changed_files = os.popen(f'git diff --name-only origin/{TARGET_BRANCH}').read().splitlines()
         print("Changed files:", changed_files)
 
         dbt_models = [f for f in changed_files if f.startswith(BASE_MODELS_DIR) and (f.endswith(".json") or f.endswith(".yml") or f.endswith(".yaml"))]
@@ -70,7 +70,7 @@ jobs:
 
             # Get previous version of the file
             try:
-                os.system(f'git show origin/${{GITHUB_BASE_REF}}:{model} > {previous_model_path}')
+                os.system(f'git show origin/{TARGET_BRANCH}:{model} > {previous_model_path}')
 
                 if os.path.exists(previous_model_path):
                     prev_columns = get_model_columns(previous_model_path)
@@ -102,8 +102,9 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const changedFiles = JSON.parse(require('fs').readFileSync('changed_files.json', 'utf8')).changed_files;
-          const columnChanges = JSON.parse(require('fs').readFileSync('column_changes.json', 'utf8'));
+          const fs = require('fs');
+          const changedFiles = JSON.parse(fs.readFileSync('changed_files.json', 'utf8')).changed_files;
+          const columnChanges = JSON.parse(fs.readFileSync('column_changes.json', 'utf8'));
 
           const changedFilesList = changedFiles.length > 0
             ? `**Changed Files:**\n- ${changedFiles.join('\n- ')}\n\n`
