@@ -42,6 +42,25 @@ jobs:
         BASE_MODELS_DIR = "models"
         TARGET_BRANCH = os.environ.get("GITHUB_BASE_REF", "main")
         PREVIOUS_MODEL_PATH = "previous_model"
+        
+        def get_model_columns_NEW(file_path):
+          if file_path.endswith(".json"):
+            with open(file_path, "r") as f:
+              data = json.load(f)
+          elif file_path.endswith(".yml") or file_path.endswith(".yaml"):
+            with open(file_path, "r") as f:
+              data = yaml.safe_load(f)
+          else:
+            raise ValueError(f"Unsupported file type: {file_path}")
+            columns = set()
+            for model in data.get("models", []):
+              for column in model.get("columns", []):
+                column_name = column.get("name")
+                if column_name:
+                  columns.add(column_name)
+          return columns
+
+
 
         # Helper to parse model files
         def get_model_columns(file_path):
@@ -55,8 +74,10 @@ jobs:
                     print(data)
             else:
                 raise ValueError(f"Unsupported file type: {file_path}")
+            
 
             return {col['name'] for col in data.get('columns', [])}
+          
 
         # Fetch changed files
         changed_files = os.popen(f'git diff --name-only origin/{TARGET_BRANCH}').read().splitlines()
@@ -75,10 +96,10 @@ jobs:
                 os.system(f'git show origin/{TARGET_BRANCH}:{model} > {previous_model_path}')
 
                 if os.path.exists(previous_model_path):
-                    prev_columns = get_model_columns(previous_model_path)
+                    prev_columns = get_model_columns_NEW(previous_model_path)
                     print("prev_columns:", prev_columns)
 
-                    current_columns = get_model_columns(model)
+                    current_columns = get_model_columns_NEW(model)
                     print("current_columns:", current_columns)
 
                     changes = diff(prev_columns, current_columns)
